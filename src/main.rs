@@ -22,29 +22,43 @@ enum Orientation {
 /// All images are resized to the same size specified by the user. Size will
 /// default to the size of the first image.
 struct App {
+    /// The paths to the images to be used in the collage.
     image_paths: Vec<PathBuf>,
 
+    /// The width of the images in the collage. If not specified, the width of
+    /// the first image will be used.
     #[arg(long = "width", short = 'w')]
     image_width: Option<u32>,
 
+    /// The height of the images in the collage. If not specified, the height of
+    /// the first image will be used.
     #[arg(long = "height", short = 'h')]
     image_height: Option<u32>,
 
+    /// The orientation of the collage. If not specified, the default is
+    /// `portrait`.
     #[arg(long, short, default_value = "portrait")]
     orientation: Orientation,
 
+    /// The top and bottom margin of the collage. If not specified, the default is 0.
     #[arg(long = "top", short = 't', default_value_t = 0)]
     top_margin: u32,
 
+    /// The left and right margin of the collage. If not specified, the default is 0.
     #[arg(long = "left", short = 'l', default_value_t = 0)]
     left_margin: u32,
 
+    /// The spacing between images. If not specified, the default is 20.
     #[arg(long = "spacing", short = 's', default_value_t = 20)]
     spacing: u32,
 
+    /// The background color of the collage. If not specified, the default is
+    /// white.
     #[arg(long = "color", short = 'c', default_value = "#ffffff")]
     background_color: String,
 
+    /// If true, then the aspect ratio of the images will be preserved. If not
+    /// specified, the default is false.
     #[arg(long = "preserve", short = 'p', default_value_t = false)]
     preserve_aspect_ratio: bool,
 }
