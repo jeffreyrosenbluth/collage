@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 use directories::UserDirs;
-use image::{imageops::FilterType, DynamicImage, GenericImageView, Rgba, RgbaImage};
+use image::{imageops::FilterType, DynamicImage, GenericImage, Rgba, RgbaImage};
 use std::path::PathBuf;
 
 #[allow(dead_code)]
@@ -158,10 +158,7 @@ fn main() {
             let x = app.left_margin;
             let mut y = app.top_margin;
             for image in &model.images {
-                // let image = prepare_image(image, model.image_width, model.image_height, &app);
-                for (x1, y1, pixel) in image.pixels() {
-                    out_image.put_pixel(x + x1, y + y1, pixel);
-                }
+                out_image.copy_from(image, x, y).unwrap();
                 y += image.height() + app.spacing;
             }
         }
@@ -169,10 +166,7 @@ fn main() {
             let mut x = app.left_margin;
             let y = app.top_margin;
             for image in model.images {
-                // let image = prepare_image(&image, model.image_width, model.image_height, &app);
-                for (x1, y1, pixel) in image.pixels() {
-                    out_image.put_pixel(x + x1, y + y1, pixel);
-                }
+                out_image.copy_from(&image, x, y).unwrap();
                 x += image.width() + app.spacing;
             }
         }
