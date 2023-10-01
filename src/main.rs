@@ -14,10 +14,10 @@ enum Orientation {
 #[command(name = "Collage")]
 #[command(author = "Jeffrey M. Rosenbluth")]
 #[command(version = "0.1")]
-#[command(about = "Create a collage from a lost of images", long_about = None)]
+#[command(about = "Create a collage from a iist of images", long_about = None)]
 /// Create a collage from a list of images.
 ///
-/// Collage can eiter be a column (portrait) or a row (landscape) of images.
+/// Collage can either be a column (portrait) or a row (landscape) of images.
 /// User can select and orientation, background color, margins and spacing.
 /// All images are resized to the same size specified by the user. Size will
 /// default to the size of the first image.
@@ -114,16 +114,8 @@ fn main() {
         .map(|path| image::open(path).unwrap())
         .collect();
 
-    let image_width = if let Some(w) = app.image_width {
-        w
-    } else {
-        images[0].width()
-    };
-    let image_height = if let Some(h) = app.image_height {
-        h
-    } else {
-        images[0].height()
-    };
+    let image_width = app.image_width.unwrap_or(images[0].width());
+    let image_height = app.image_height.unwrap_or(images[0].height());
 
     images = images
         .into_iter()
@@ -146,13 +138,15 @@ fn main() {
             (w, h)
         }
         Orientation::Landscape => {
-            let w = model.image_width * n + app.spacing * (n - 1) + 2 * app.left_margin;
             let h = model.image_height + 2 * app.top_margin;
+            let ws = model.images.iter().fold(0, |a, b| a + b.width());
+            let w = ws + app.spacing * (n - 1) + 2 * app.left_margin;
             (w, h)
         }
     };
 
     let mut out_image = RgbaImage::from_pixel(width, height, hex_to_color(&app.background_color));
+
     match app.orientation {
         Orientation::Portrait => {
             let x = app.left_margin;
@@ -171,6 +165,7 @@ fn main() {
             }
         }
     }
+
     let dirs = UserDirs::new().unwrap();
     let dir = dirs.download_dir().unwrap();
     let path = format!(r"{}/{}", dir.to_string_lossy(), "collage");

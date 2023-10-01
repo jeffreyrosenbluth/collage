@@ -1,6 +1,6 @@
 # Collage
 
-## Create a collage from a lost of images
+## Create a collage from a list of images
 
 ### Usage: collage [OPTIONS] [IMAGE_PATHS]...
 
