@@ -108,20 +108,26 @@ pub fn hex_to_color(hex: &str) -> Rgba<u8> {
 
 fn main() {
     let app = App::parse();
+    // We need to read all the images before we can create the model.
     let mut images: Vec<DynamicImage> = app
         .image_paths
         .iter()
         .map(|path| image::open(path).unwrap())
         .collect();
 
+    // If the user didn't specify the width or height, then we use the width
+    // and height of the first image.
     let image_width = app.image_width.unwrap_or(images[0].width());
     let image_height = app.image_height.unwrap_or(images[0].height());
 
+    // Resize all the images to the same width (for portrait) or height (for
+    // landscape).
     images = images
         .into_iter()
         .map(|image| prepare_image(&image, image_width, image_height, &app))
         .collect();
 
+    // Create the model.
     let model = Model {
         images,
         image_width,
@@ -130,6 +136,7 @@ fn main() {
 
     let n = app.image_paths.len() as u32;
 
+    // Calculate the width and height of the output image.
     let (width, height) = match app.orientation {
         Orientation::Portrait => {
             let w = model.image_width + 2 * app.left_margin;
@@ -147,6 +154,7 @@ fn main() {
 
     let mut out_image = RgbaImage::from_pixel(width, height, hex_to_color(&app.background_color));
 
+    // Copy the images to the output image.
     match app.orientation {
         Orientation::Portrait => {
             let x = app.left_margin;
@@ -166,6 +174,7 @@ fn main() {
         }
     }
 
+    // Save the output image to the downloads dir as a png.
     let dirs = UserDirs::new().unwrap();
     let dir = dirs.download_dir().unwrap();
     let path = format!(r"{}/{}", dir.to_string_lossy(), "collage");
