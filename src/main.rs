@@ -1,6 +1,8 @@
+use anyhow::{ensure, Context, Result};
 use clap::{Parser, ValueEnum};
 use directories::UserDirs;
 use image::{imageops::FilterType, DynamicImage, GenericImage, Rgba, RgbaImage};
+use log::info;
 use std::path::PathBuf;
 
 #[allow(dead_code)]
@@ -75,51 +77,54 @@ struct Model {
 // then the width will be set to width and the heigth to width / aspect ration.
 // If it's `Landscape` then the width will be set to height * aspect ratio.
 fn prepare_image(image: &DynamicImage, width: u32, height: u32, app: &App) -> DynamicImage {
+    // If we're not preserving the aspect ratio, just resize to the exact width and height.
     if !app.preserve_aspect_ratio {
         return image.resize_exact(width, height, FilterType::CatmullRom);
     };
+
     let aspect_ratio = image.width() as f32 / image.height() as f32;
+
     let (w, h) = match app.orientation {
-        Orientation::Landscape => {
-            let h = height;
-            let w = h as f32 * aspect_ratio;
-            (w as u32, h)
-        }
-        Orientation::Portrait => {
-            let w = width;
-            let h = w as f32 / aspect_ratio;
-            (w, h as u32)
-        }
+        Orientation::Landscape => ((height as f32 * aspect_ratio) as u32, height),
+        Orientation::Portrait => (width, (width as f32 / aspect_ratio) as u32),
     };
+
     image.resize_exact(w, h, FilterType::CatmullRom)
 }
 
 // Convert a hex code to a color.
-pub fn hex_to_color(hex: &str) -> Rgba<u8> {
+pub fn hex_to_color(hex: &str) -> Result<Rgba<u8>> {
     let hex_code = hex.strip_prefix('#').map_or(hex, |stripped| stripped);
-    if hex_code.len() != 6 {
-        panic!("hex code is not 6 characters long")
-    }
-    let red = u8::from_str_radix(&hex_code[..2], 16).expect("invalid hex code format");
-    let green = u8::from_str_radix(&hex_code[2..4], 16).expect("invalid hex code format");
-    let blue = u8::from_str_radix(&hex_code[4..6], 16).expect("invalid hex code format");
-    Rgba([red, green, blue, 255])
+    ensure!(hex_code.len() == 6, "Invalid hex code length");
+
+    let red = u8::from_str_radix(&hex_code[..2], 16).context("Invalid hex code for red channel")?;
+    let green =
+        u8::from_str_radix(&hex_code[2..4], 16).context("Invalid hex code for green channel")?;
+    let blue =
+        u8::from_str_radix(&hex_code[4..6], 16).context("Invalid hex code for blue channel")?;
+
+    Ok(Rgba([red, green, blue, 255]))
 }
 
-fn main() {
+fn main() -> Result<()> {
+    env_logger::init();
     let app = App::parse();
-    // We need to read all the images before we can create the model.
+
+    info!("Opening images");
+    // We need to read all the images before we can create the model.dd
     let mut images: Vec<DynamicImage> = app
         .image_paths
         .iter()
         .map(|path| image::open(path).unwrap())
         .collect();
 
+    info!("Setting the global image dimensions");
     // If the user didn't specify the width or height, then we use the width
     // and height of the first image.
     let image_width = app.image_width.unwrap_or(images[0].width());
     let image_height = app.image_height.unwrap_or(images[0].height());
 
+    info!("Resizing images if necessary");
     // Resize all the images to the same width (for portrait) or height (for
     // landscape).
     images = images
@@ -136,6 +141,7 @@ fn main() {
 
     let n = app.image_paths.len() as u32;
 
+    info!("Calculating the size of the output image");
     // Calculate the width and height of the output image.
     let (width, height) = match app.orientation {
         Orientation::Portrait => {
@@ -152,15 +158,20 @@ fn main() {
         }
     };
 
-    let mut out_image = RgbaImage::from_pixel(width, height, hex_to_color(&app.background_color));
+    info!(
+        "Creating the blank output image with color {}",
+        app.background_color
+    );
+    let mut out_image = RgbaImage::from_pixel(width, height, hex_to_color(&app.background_color)?);
 
+    info!("Copying the images to the output image");
     // Copy the images to the output image.
     match app.orientation {
         Orientation::Portrait => {
             let x = app.left_margin;
             let mut y = app.top_margin;
             for image in &model.images {
-                out_image.copy_from(image, x, y).unwrap();
+                out_image.copy_from(image, x, y)?;
                 y += image.height() + app.spacing;
             }
         }
@@ -168,15 +179,16 @@ fn main() {
             let mut x = app.left_margin;
             let y = app.top_margin;
             for image in model.images {
-                out_image.copy_from(&image, x, y).unwrap();
+                out_image.copy_from(&image, x, y)?;
                 x += image.width() + app.spacing;
             }
         }
     }
 
+    info!("Saving the output image");
     // Save the output image to the downloads dir as a png.
-    let dirs = UserDirs::new().unwrap();
-    let dir = dirs.download_dir().unwrap();
+    let dirs = UserDirs::new().expect("Failed to get user dirs");
+    let dir = dirs.download_dir().expect("Failed to get download dir");
     let path = format!(r"{}/{}", dir.to_string_lossy(), "collage");
     let mut num = 0;
     let mut sketch = PathBuf::from(format!(r"{path}_{num}"));
@@ -186,5 +198,6 @@ fn main() {
         sketch = PathBuf::from(format!(r"{path}_{num}"));
         sketch.set_extension("png");
     }
-    out_image.save(sketch).unwrap();
+    out_image.save(sketch)?;
+    Ok(())
 }
