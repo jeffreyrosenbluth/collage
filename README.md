@@ -7,8 +7,8 @@ Arguments:
   <IMAGE_DIR>  The directory wiht the images to be used in the collage
 
 Options:
-  -w, --width <IMAGE_WIDTH>        The width of the images in the collage. If not specified, the width of the first image will be used
-  -h, --height <IMAGE_HEIGHT>      The height of the images in the collage. If not specified, the height of the first image will be used
+  -W, --width <IMAGE_WIDTH>        The width of the images in the collage. If not specified, the width of the first image will be used
+  -H, --height <IMAGE_HEIGHT>      The height of the images in the collage. If not specified, the height of the first image will be used
   -o, --orientation <ORIENTATION>  The orientation of the collage. If not specified, the default is `portrait` [default: portrait] [possible values: portrait, landscape]
   -t, --top <TOP_MARGIN>           The top and bottom margin of the collage. If not specified, the default is 0 [default: 0]
   -l, --left <LEFT_MARGIN>         The left and right margin of the collage. If not specified, the default is 0 [default: 0]

@@ -30,12 +30,12 @@ struct App {
 
     /// The width of the images in the collage. If not specified, the width of
     /// the first image will be used.
-    #[arg(long = "width", short = 'w')]
+    #[arg(long = "width", short = 'W')]
     image_width: Option<u32>,
 
     /// The height of the images in the collage. If not specified, the height of
     /// the first image will be used.
-    #[arg(long = "height", short = 'h')]
+    #[arg(long = "height", short = 'H')]
     image_height: Option<u32>,
 
     /// The orientation of the collage. If not specified, the default is
