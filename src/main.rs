@@ -4,6 +4,7 @@ use directories::UserDirs;
 use image::{imageops::FilterType, DynamicImage, GenericImage, Rgba, RgbaImage};
 use log::info;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 #[allow(dead_code)]
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -16,16 +17,16 @@ enum Orientation {
 #[command(name = "Collage")]
 #[command(author = "Jeffrey M. Rosenbluth")]
 #[command(version = "0.1")]
-#[command(about = "Create a collage from a iist of images", long_about = None)]
-/// Create a collage from a list of images.
+#[command(about = "Create a collage from a directory of images", long_about = None)]
+/// Create a collage from a directory of images.
 ///
 /// Collage can either be a column (portrait) or a row (landscape) of images.
 /// User can select and orientation, background color, margins and spacing.
 /// All images are resized to the same size specified by the user. Size will
 /// default to the size of the first image.
 struct App {
-    /// The paths to the images to be used in the collage.
-    image_paths: Vec<PathBuf>,
+    /// The directory wiht the images to be used in the collage.
+    image_dir: PathBuf,
 
     /// The width of the images in the collage. If not specified, the width of
     /// the first image will be used.
@@ -110,21 +111,24 @@ fn main() -> Result<()> {
     env_logger::init();
     let app = App::parse();
 
-    info!("Opening images");
-    // We need to read all the images before we can create the model.dd
-    let mut images: Vec<DynamicImage> = app
-        .image_paths
-        .iter()
-        .map(|path| image::open(path).unwrap())
-        .collect();
+    info!("Opening images.");
+    // We need to read the images before we can create the model.
+    let mut images: Vec<DynamicImage> = Vec::new();
+    for entry in WalkDir::new(&app.image_dir) {
+        if let Ok(dir_entry) = entry {
+            if let Ok(img) = image::open(dir_entry.path()) {
+                images.push(img);
+            }
+        }
+    }
 
-    info!("Setting the global image dimensions");
+    info!("Setting the global image dimensions.");
     // If the user didn't specify the width or height, then we use the width
     // and height of the first image.
     let image_width = app.image_width.unwrap_or(images[0].width());
     let image_height = app.image_height.unwrap_or(images[0].height());
 
-    info!("Resizing images if necessary");
+    info!("Resizing images if necessary.");
     // Resize all the images to the same width (for portrait) or height (for
     // landscape).
     images = images
@@ -139,9 +143,9 @@ fn main() -> Result<()> {
         image_height,
     };
 
-    let n = app.image_paths.len() as u32;
+    let n = model.images.len() as u32;
 
-    info!("Calculating the size of the output image");
+    info!("Calculating the size of the output image.");
     // Calculate the width and height of the output image.
     let (width, height) = match app.orientation {
         Orientation::Portrait => {
@@ -159,12 +163,12 @@ fn main() -> Result<()> {
     };
 
     info!(
-        "Creating the blank output image with color {}",
+        "Creating the blank output image with color {}.",
         app.background_color
     );
     let mut out_image = RgbaImage::from_pixel(width, height, hex_to_color(&app.background_color)?);
 
-    info!("Copying the images to the output image");
+    info!("Copying the {n} images to the output image.");
     // Copy the images to the output image.
     match app.orientation {
         Orientation::Portrait => {
@@ -185,7 +189,7 @@ fn main() -> Result<()> {
         }
     }
 
-    info!("Saving the output image");
+    info!("Saving the output image.");
     // Save the output image to the downloads dir as a png.
     let dirs = UserDirs::new().expect("Failed to get user dirs");
     let dir = dirs.download_dir().expect("Failed to get download dir");
