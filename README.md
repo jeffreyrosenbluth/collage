@@ -1,4 +1,4 @@
-```bash
+```plaintext
 Create a collage from a directory of images
 
 Usage: collage [OPTIONS] <IMAGE_DIR>

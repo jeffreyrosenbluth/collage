@@ -3,7 +3,11 @@ use clap::{Parser, ValueEnum};
 use directories::UserDirs;
 use image::{imageops::FilterType, DynamicImage, GenericImage, Rgba, RgbaImage};
 use log::info;
-use std::path::PathBuf;
+use std::{
+    fs::metadata,
+    io::{self, Write},
+    path::PathBuf,
+};
 use walkdir::WalkDir;
 
 #[allow(dead_code)]
@@ -114,10 +118,41 @@ fn main() -> Result<()> {
     info!("Opening images.");
     // We need to read the images before we can create the model.
     let mut images: Vec<DynamicImage> = Vec::new();
-    for entry in WalkDir::new(&app.image_dir) {
-        if let Ok(dir_entry) = entry {
-            if let Ok(img) = image::open(dir_entry.path()) {
-                images.push(img);
+    let mut paths: Vec<PathBuf> = WalkDir::new(&app.image_dir)
+        .into_iter()
+        .flatten()
+        .map(|d| d.path().to_path_buf())
+        .collect();
+    paths.sort_by(|a, b| a.to_string_lossy().cmp(&b.to_string_lossy()));
+
+    info!("Calculating the total size of the images.");
+    let mut raw_megabytes = 0;
+    for path in paths {
+        if let Ok(metadata) = metadata(&path) {
+            raw_megabytes += metadata.len() / 1_000_000;
+        }
+        if let Ok(img) = image::open(&path) {
+            images.push(img);
+        }
+    }
+
+    // If the total size of the images is greater than 100Mb, then ask the user
+    // if they want to proceed.
+    if raw_megabytes > 100 {
+        print!("The image files total {raw_megabytes}Mb. Do you want to proceed? [Y/n]: ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        match input.trim().to_lowercase().as_str() {
+            "y" | "yes" => {
+                println!("Proceeding...");
+            }
+            _ => {
+                // Do not proceed
+                println!("Operation cancelled.");
+                return Ok(());
             }
         }
     }
