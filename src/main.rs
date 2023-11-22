@@ -2,7 +2,7 @@ use anyhow::{ensure, Context, Result};
 use clap::{Parser, ValueEnum};
 use directories::UserDirs;
 use image::{imageops::FilterType, DynamicImage, GenericImage, Rgba, RgbaImage};
-use log::info;
+use log::{info, warn};
 use std::{
     fs::metadata,
     io::{self, Write},
@@ -79,7 +79,7 @@ struct Model {
 
 // Resize an image to the specified width and height. If preserve_aspect_ratio
 // is true, then the image will be resized so that if `Portrait` orientation
-// then the width will be set to width and the heigth to width / aspect ration.
+// then the width will be set to width and the heigth to width / aspect ratio.
 // If it's `Landscape` then the width will be set to height * aspect ratio.
 fn prepare_image(image: &DynamicImage, width: u32, height: u32, app: &App) -> DynamicImage {
     // If we're not preserving the aspect ratio, just resize to the exact width and height.
@@ -114,6 +114,12 @@ pub fn hex_to_color(hex: &str) -> Result<Rgba<u8>> {
 fn main() -> Result<()> {
     env_logger::init();
     let app = App::parse();
+
+    if let (Some(w), Some(h)) = (app.image_height, app.image_height) {
+        if w * h > 100_000_000 {
+            warn!("The product of the width and height is greater than 100,000Mb.");
+        }
+    }
 
     info!("Opening images.");
     // We need to read the images before we can create the model.
@@ -150,7 +156,6 @@ fn main() -> Result<()> {
                 println!("Proceeding...");
             }
             _ => {
-                // Do not proceed
                 println!("Operation cancelled.");
                 return Ok(());
             }
@@ -205,23 +210,16 @@ fn main() -> Result<()> {
 
     info!("Copying the {n} images to the output image.");
     // Copy the images to the output image.
-    match app.orientation {
-        Orientation::Portrait => {
-            let x = app.left_margin;
-            let mut y = app.top_margin;
-            for image in &model.images {
-                out_image.copy_from(image, x, y)?;
-                y += image.height() + app.spacing;
-            }
-        }
-        Orientation::Landscape => {
-            let mut x = app.left_margin;
-            let y = app.top_margin;
-            for image in model.images {
-                out_image.copy_from(&image, x, y)?;
-                x += image.width() + app.spacing;
-            }
-        }
+    let mut x = app.left_margin;
+    let mut y = app.top_margin;
+    for image in &model.images {
+        let (dx, dy) = match app.orientation {
+            Orientation::Portrait => (0, image.height() + app.spacing),
+            Orientation::Landscape => (image.width() + app.spacing, 0),
+        };
+        out_image.copy_from(image, x, y)?;
+        y += dy;
+        x += dx;
     }
 
     info!("Saving the output image.");
